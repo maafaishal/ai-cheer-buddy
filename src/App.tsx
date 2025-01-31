@@ -10,6 +10,7 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY);
 
 function App() {
   const [situation, setSituation] = useState("");
+  const [language, setLanguage] = useState("Indonesian");
   const [reminders, setReminders] = useState<
     { quote: string; explanation: string }[]
   >([]);
@@ -35,7 +36,9 @@ function App() {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
-        Given this situation: "${situation}", provide exactly 3 **unique and non-repetitive** quotes that can help someone feel better. **DO NOT** use the previous quotes as follow:
+        Given this situation: "${situation}", first **analyze the situation carefully** to understand its context, emotional tone, and the challenges involved. Based on this detailed understanding, provide exactly 3 **unique and relevant** quotes that can help someone feel better. The quotes should be **directly related to the situation** and provide emotional support, motivation, or practical advice for overcoming the difficulty.
+        
+        **DO NOT** use the previous quotes as follow:
         
         ${previousQuotes.current.join(",")}
 
@@ -49,12 +52,14 @@ function App() {
         For each quote, return:  
         1. The quote itself  
         2. The author's name  
-        3. A **fresh** and **simple** explanation that is engaging and includes **emojis** to help users understand how to cheer up.  
+        3. A **clear, actionable explanation** that offers both emotional support and **practical advice or steps** the user can take to improve their situation. The explanation should be **simple and engaging**, with **emojis** to make it approachable. The focus should be on suggesting solutions, such as mindset shifts, coping strategies, or small actions to move forward.
+
+
+        The user prefers in ${language} for the explanation. Keep the quote in English.
 
         Format the result as follows:  
         '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote with "||".  
-
-`;
+      `;
 
       const result = await model.generateContent(prompt);
 
