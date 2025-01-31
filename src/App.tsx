@@ -178,7 +178,7 @@ function App() {
             <Sparkles className="w-6 h-6 text-sky-500" />
           </div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500">
-            AI Uplifting Reminder
+            AI Cheer Buddy
           </h1>
         </div>
         <div className="space-y-6">

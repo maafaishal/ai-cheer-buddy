@@ -20,7 +20,11 @@ body {
 }
 
 button {
-  cursor: auto;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 @keyframes gradient {

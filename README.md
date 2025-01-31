@@ -1,8 +1,8 @@
+![image](https://github.com/user-attachments/assets/838e8a1b-a92e-4ce8-a985-95bd68aa9a7c)
+
 # ✨ AI Cheer Buddy
 
 AI Cheer Buddy is a web application designed to provide AI-generated motivational quotes, explanations, and practical solutions based on users' struggles. Whether you're felling down or facing a challenge, this app aims to lift your spirits and help you overcome difficulties
-
-Preview:
 
 ## 🚀 Features
 
