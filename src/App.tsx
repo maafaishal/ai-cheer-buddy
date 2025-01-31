@@ -1,5 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import dayjs from "dayjs";
 
 import {
   Sparkles,
@@ -7,7 +9,10 @@ import {
   ChevronRight,
   Loader2,
   Send,
+  AlertCircle,
 } from "lucide-react";
+
+const LS_KEY = "reminderGeneration";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY);
 
@@ -19,6 +24,8 @@ function App() {
   >([]);
   const [currentReminderIndex, setCurrentReminderIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(3);
+  const [nextResetTime, setNextResetTime] = useState("");
 
   const previousSituation = useRef("");
   const previousQuotes = useRef<string[]>([]);
@@ -26,13 +33,59 @@ function App() {
   const isSituationEmpty = situation.trim().length === 0;
   const isSituationTheSame = previousSituation.current === situation;
 
+  useEffect(() => {
+    const loadAttempts = () => {
+      const stored = localStorage.getItem(LS_KEY);
+
+      if (stored) {
+        const { attempts, resetTime } = JSON.parse(stored);
+
+        const now = new Date().getTime();
+
+        if (now > resetTime) {
+          setRemainingAttempts(3);
+          setNextResetTime("");
+
+          localStorage.removeItem(LS_KEY);
+        } else {
+          setRemainingAttempts(3 - attempts);
+          setNextResetTime(dayjs(resetTime).format("DD MMM YYYY - HH:mm A"));
+        }
+      }
+    };
+
+    loadAttempts();
+  }, []);
+
+  const updateAttemps = () => {
+    const stored = localStorage.getItem(LS_KEY);
+    const nextDay = dayjs(`${dayjs().format("YYYY-MM-DD")} 00:000`)
+      .add(1, "d")
+      .valueOf();
+
+    const resetTime = stored ? JSON.parse(stored).resetTime : nextDay;
+
+    const currentAttempts = stored ? JSON.parse(stored).attempts + 1 : 1;
+
+    localStorage.setItem(
+      LS_KEY,
+      JSON.stringify({
+        attempts: currentAttempts,
+        resetTime,
+      })
+    );
+
+    setRemainingAttempts(3 - currentAttempts);
+    setNextResetTime(dayjs(resetTime).format("DD MMM YYYY - HH:mm A"));
+  };
+
   const generateReminders = async () => {
     if (!isSituationTheSame) {
       previousSituation.current = situation;
       previousQuotes.current = [];
     }
 
-    if (isSituationEmpty) return;
+    if (isSituationEmpty || remainingAttempts <= 0) return;
 
     setLoading(true);
 
@@ -81,12 +134,22 @@ function App() {
         };
       });
 
+      updateAttemps();
       setReminders(newReminders);
     } catch (error) {
       console.error("Error generating reminders", error);
     } finally {
       setCurrentReminderIndex(0);
       setLoading(false);
+    }
+  };
+
+  const handleEnter:
+    | React.KeyboardEventHandler<HTMLTextAreaElement>
+    | undefined = (e) => {
+    if (e.keyCode === 13 && !e.shiftKey) {
+      e.preventDefault();
+      generateReminders();
     }
   };
 
@@ -115,10 +178,19 @@ function App() {
             <Sparkles className="w-6 h-6 text-sky-500" />
           </div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500">
-            Uplifting Reminder
+            AI Uplifting Reminder
           </h1>
         </div>
         <div className="space-y-6">
+          {remainingAttempts < 2 && (
+            <div className="flex items-center gap-2 text-sm bg-sky-50/50 p-4 rounded-xl border border-sky-100">
+              <AlertCircle className="w-4 h-4 text-sky-500" />
+              <span className="text-sky-900">
+                You have {remainingAttempts} attempt remaining.
+                {nextResetTime && ` Resets at ${nextResetTime}`}
+              </span>
+            </div>
+          )}
           <div>
             <label
               htmlFor="situation-input"
@@ -131,13 +203,20 @@ function App() {
                 id="situation-input"
                 value={situation}
                 onChange={handleChangeSituation}
+                onKeyDown={handleEnter}
                 rows={4}
+                disabled={remainingAttempts === 0}
                 placeholder="Tell us what's troubling you..."
                 className="w-full px-4 py-3 rounded-xl border border-sky-100 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all resize-none placeholder-sky-400"
               />
               <button
                 onClick={generateReminders}
-                disabled={loading || isSituationEmpty || isSituationTheSame}
+                disabled={
+                  loading ||
+                  isSituationEmpty ||
+                  isSituationTheSame ||
+                  remainingAttempts === 0
+                }
                 className="absolute bottom-3 right-3 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white p-2 rounded-lg transition-colors disabled:opacity-50"
               >
                 {loading ? (
