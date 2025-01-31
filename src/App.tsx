@@ -1,29 +1,33 @@
 import { useState, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-import { Quote, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Send,
+} from "lucide-react";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY);
 
-// const hehe =
-//   "I just got fired after searching job for 6 months. Now, I need to search jobs again. I don't know when I will get a job for months :(";
-
 function App() {
   const [situation, setSituation] = useState("");
-  const [language, setLanguage] = useState("Indonesian");
+  const [language] = useState("English");
   const [reminders, setReminders] = useState<
     { quote: string; explanation: string }[]
   >([]);
   const [currentReminderIndex, setCurrentReminderIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const isSituationEmpty = situation.trim().length === 0;
-
   const previousSituation = useRef("");
   const previousQuotes = useRef<string[]>([]);
 
+  const isSituationEmpty = situation.trim().length === 0;
+  const isSituationTheSame = previousSituation.current === situation;
+
   const generateReminders = async () => {
-    if (previousSituation.current !== situation) {
+    if (!isSituationTheSame) {
       previousSituation.current = situation;
       previousQuotes.current = [];
     }
@@ -104,11 +108,13 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen min-w-screen flex flex-col items-center justify-center">
-      <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl p-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Quote className="w-6 h-6 text-purple-600" />
-          <h1 className="text-2xl font-bold text-gray-800">
+    <div className="min-h-screen min-w-screen animate-gradient flex flex-col items-center justify-center">
+      <div className="max-w-2xl w-full glass-effect bg-white rounded-2xl shadow-2xl p-8 border border-white/20">
+        <div className="flex items-center gap-2 mb-8">
+          <div className="bg-white/30 p-2 rounded-lg">
+            <Sparkles className="w-6 h-6 text-sky-500" />
+          </div>
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500">
             Uplifting Reminder
           </h1>
         </div>
@@ -116,31 +122,37 @@ function App() {
           <div>
             <label
               htmlFor="situation-input"
-              className="block text-sm font-medium text-gray700 mb-2"
+              className="block text-sm font-medium text-sky-700 mb-2"
             >
-              Share your situation
+              Share what's on your mind
             </label>
-            <textarea
-              id="situation-input"
-              value={situation}
-              onChange={handleChangeSituation}
-              rows={4}
-              placeholder="Tell us what's troubling you..."
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
-            />
+            <div className="relative">
+              <textarea
+                id="situation-input"
+                value={situation}
+                onChange={handleChangeSituation}
+                rows={4}
+                placeholder="Tell us what's troubling you..."
+                className="w-full px-4 py-3 rounded-xl border border-sky-100 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all resize-none placeholder-sky-400"
+              />
+              <button
+                onClick={generateReminders}
+                disabled={loading || isSituationEmpty || isSituationTheSame}
+                className="absolute bottom-3 right-3 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white p-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={generateReminders}
-            disabled={loading || isSituationEmpty}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? "Generating reminders..." : "Get Uplifting Reminders"}
-          </button>
         </div>
       </div>
       {reminders.length > 0 && (
         <div className="max-w-6xl mt-8 space-y-4">
-          <div className="bg-purple-50 p-6 rounded-lg min-h-[200px] flex flex-col items-center justify-center relative">
+          <div className="bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-sm p-8 rounded-xl border border-white/20 min-h-[200px] flex flex-col items-center justifycenter relative shadow-lg">
             <p className="text-xl text-center text-gray-800 font-bold italic mb-8">
               {reminders[currentReminderIndex].quote}
             </p>
@@ -153,19 +165,19 @@ function App() {
             <button
               onClick={handleViwPreviousReminder}
               disabled={currentReminderIndex === 0}
-              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 transition-colors"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-6 h-6 text-sky-200" />
             </button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-sky-300">
               {currentReminderIndex + 1} of {reminders.length}
             </span>
             <button
               onClick={handleViewNextReminder}
               disabled={currentReminderIndex === reminders.length - 1}
-              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 transition-colors"
             >
-              <ChevronRight className="w-6 h-6" />
+              <ChevronRight className="w-6 h-6 text-sky-200" />
             </button>
           </div>
         </div>
