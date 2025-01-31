@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { Quote, ChevronLeft, ChevronRight } from "lucide-react";
@@ -18,7 +18,15 @@ function App() {
 
   const isSituationEmpty = situation.trim().length === 0;
 
+  const previousSituation = useRef("");
+  const previousQuotes = useRef<string[]>([]);
+
   const generateReminders = async () => {
+    if (previousSituation.current !== situation) {
+      previousSituation.current = situation;
+      previousQuotes.current = [];
+    }
+
     if (isSituationEmpty) return;
 
     setLoading(true);
@@ -26,26 +34,49 @@ function App() {
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      const prompt = `Given this situation: "${situation}", provide exactly 3 uplifting and meaningful quotes to be a reminder that could help someone feel better in their bad situation. Return the quotes with the author, then give explanation in simple terms so the users understand how to cheer up with emojis. The result will be '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote by || and between the quote (author) and explanation`;
+      const prompt = `
+        Given this situation: "${situation}", provide exactly 3 **unique and non-repetitive** quotes that can help someone feel better. **DO NOT** use the previous quotes as follow:
+        
+        ${previousQuotes.current.join(",")}
+
+        Each quote **must be from a different category**, such as:  
+        1. **Ancient wisdom or philosophy** (e.g., from Stoicism, Confucianism, or old proverbs)  
+        2. **Modern authors, scientists, or leaders** (20th century to present)  
+        3. **A surprising or unexpected source** (e.g., songs, movies, cultural sayings, folklore)  
+
+        Ensure each quote is **distinct in meaning and phrasing**. Avoid using similar themes across all three.  
+
+        For each quote, return:  
+        1. The quote itself  
+        2. The author's name  
+        3. A **fresh** and **simple** explanation that is engaging and includes **emojis** to help users understand how to cheer up.  
+
+        Format the result as follows:  
+        '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote with "||".  
+
+`;
 
       const result = await model.generateContent(prompt);
 
       const response = result.response.text();
-      console.log("🚀 ~ generateReminders ~ response:", response);
       const newReminders = response.split("||").map((reminder) => {
         const splittedReminder = reminder.split("|");
 
+        const theQuote = splittedReminder[0];
+
+        previousQuotes.current.push(theQuote);
+
         return {
-          quote: splittedReminder[0],
+          quote: theQuote,
           explanation: splittedReminder[1],
         };
       });
 
       setReminders(newReminders);
-      console.log("🚀 ~ generateReminders ~ newReminders:", newReminders);
     } catch (error) {
       console.error("Error generating reminders", error);
     } finally {
+      setCurrentReminderIndex(0);
       setLoading(false);
     }
   };
