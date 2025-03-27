@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import OpenAI from "openai";
 
 import dayjs from "dayjs";
+import ky from "ky";
 
 import {
   Sparkles,
@@ -19,12 +18,6 @@ const LS_KEY = "reminderGeneration";
 
 const AI_GOOGLE = "gemini";
 const AI_OPENAI = "gpt";
-
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY);
-const openAIClient = new OpenAI({
-  apiKey: import.meta.env.VITE_OPEN_AI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
 
 function App() {
   const [situation, setSituation] = useState("");
@@ -93,46 +86,20 @@ function App() {
     setLoading(true);
 
     try {
-      const prompt = `
-        Given this situation: "${situation}", first **analyze the situation carefully** to understand its context, emotional tone, and the challenges involved. Based on this detailed understanding, provide exactly 3 **unique and relevant** quotes that can help someone feel better. The quotes should be **directly related to the situation** and provide emotional support, motivation, or practical advice for overcoming the difficulty.
+      const fetchPath = aiAPI === AI_GOOGLE ? "gemini" : "gpt";
 
-        Each quote **must be from a different category**, such as:  
-        1. **Ancient wisdom or philosophy** (e.g., from Stoicism, Confucianism, or old proverbs)  
-        2. **Modern authors, scientists, or leaders** (20th century to present)  
-        3. **A surprising or unexpected source** (e.g., songs, movies, cultural sayings, folklore)  
+      const fetchResponse = await ky
+        .post(`${window.location.origin}/api/${fetchPath}`, {
+          json: {
+            situation,
+            language,
+          },
+        })
+        .json<{
+          response: string;
+        }>();
 
-        Ensure each quote is **distinct in meaning and phrasing**. Avoid using similar themes across all three.  
-
-        For each quote, return:  
-        1. The quote itself  
-        2. The author's name  
-        3. A **clear, actionable explanation** that offers both emotional support and **practical advice or steps** the user can take to improve their situation. The explanation should be **simple and engaging**, with **emojis** to make it approachable. The focus should be on suggesting solutions, such as mindset shifts, coping strategies, or small actions to move forward.
-
-
-        The user prefers in ${language} for the explanation. Keep the quote in English.
-
-        Please be careful, the result format must be: '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote with "||".  
-      `;
-
-      let response = "";
-
-      if (aiAPI === AI_GOOGLE) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(prompt);
-        response = result.response.text();
-      } else {
-        const completion = await openAIClient.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-        });
-
-        response = completion.choices[0].message.content || "";
-      }
+      const response = fetchResponse.response;
 
       if (response) {
         const newReminders = response.split("||").map((reminder) => {
