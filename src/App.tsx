@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
 import dayjs from "dayjs";
 
@@ -12,12 +13,22 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 const LS_KEY = "reminderGeneration";
 
+const AI_GOOGLE = "gemini";
+const AI_OPENAI = "gpt";
+
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY);
+const openAIClient = new OpenAI({
+  apiKey: import.meta.env.VITE_OPEN_AI_API_KEY,
+  dangerouslyAllowBrowser: true,
+});
 
 function App() {
   const [situation, setSituation] = useState("");
+  const [lastSituation, setLastSituation] = useState("");
   const [language] = useState("English");
   const [reminders, setReminders] = useState<
     { quote: string; explanation: string }[]
@@ -26,12 +37,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [nextResetTime, setNextResetTime] = useState("");
-
-  const previousSituation = useRef("");
-  const previousQuotes = useRef<string[]>([]);
+  const [aiAPI, setAIAPI] = useState(AI_GOOGLE);
 
   const isSituationEmpty = situation.trim().length === 0;
-  const isSituationTheSame = previousSituation.current === situation;
 
   useEffect(() => {
     const loadAttempts = () => {
@@ -80,24 +88,13 @@ function App() {
   };
 
   const generateReminders = async () => {
-    if (!isSituationTheSame) {
-      previousSituation.current = situation;
-      previousQuotes.current = [];
-    }
-
     if (isSituationEmpty || remainingAttempts <= 0) return;
 
     setLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
       const prompt = `
         Given this situation: "${situation}", first **analyze the situation carefully** to understand its context, emotional tone, and the challenges involved. Based on this detailed understanding, provide exactly 3 **unique and relevant** quotes that can help someone feel better. The quotes should be **directly related to the situation** and provide emotional support, motivation, or practical advice for overcoming the difficulty.
-        
-        **DO NOT** use the previous quotes as follow:
-        
-        ${previousQuotes.current.join(",")}
 
         Each quote **must be from a different category**, such as:  
         1. **Ancient wisdom or philosophy** (e.g., from Stoicism, Confucianism, or old proverbs)  
@@ -114,28 +111,45 @@ function App() {
 
         The user prefers in ${language} for the explanation. Keep the quote in English.
 
-        Format the result as follows:  
-        '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote with "||".  
+        Please be careful, the result format must be: '"[quote]" - [author] | [explanation]' || '"[quote]" - [author] | [explanation]'. Separate each quote with "||".  
       `;
 
-      const result = await model.generateContent(prompt);
+      let response = "";
 
-      const response = result.response.text();
-      const newReminders = response.split("||").map((reminder) => {
-        const splittedReminder = reminder.split("|");
+      if (aiAPI === AI_GOOGLE) {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(prompt);
+        response = result.response.text();
+      } else {
+        const completion = await openAIClient.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        });
 
-        const theQuote = splittedReminder[0];
+        response = completion.choices[0].message.content || "";
+      }
 
-        previousQuotes.current.push(theQuote);
+      if (response) {
+        const newReminders = response.split("||").map((reminder) => {
+          const splittedReminder = reminder.split("|");
 
-        return {
-          quote: theQuote,
-          explanation: splittedReminder[1],
-        };
-      });
+          const theQuote = splittedReminder[0];
 
-      updateAttemps();
-      setReminders(newReminders);
+          return {
+            quote: theQuote,
+            explanation: splittedReminder[1],
+          };
+        });
+        updateAttemps();
+        setReminders(newReminders);
+        setSituation("");
+        setLastSituation(situation);
+      }
     } catch (error) {
       console.error("Error generating reminders", error);
     } finally {
@@ -170,16 +184,40 @@ function App() {
     setCurrentReminderIndex((prev) => prev + 1);
   };
 
+  const handleChangeTab = (tab: string) => {
+    setAIAPI(tab);
+  };
+
   return (
     <div className="min-h-screen min-w-screen animate-gradient flex flex-col items-center justify-center">
       <div className="max-w-2xl w-full glass-effect bg-white rounded-2xl shadow-2xl p-8 border border-white/20">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="bg-white/30 p-2 rounded-lg">
-            <Sparkles className="w-6 h-6 text-sky-500" />
+        <div className="flex w-full justify-between items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="bg-white/30 p-2 rounded-lg">
+              <Sparkles className="w-6 h-6 text-sky-500" />
+            </div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500">
+              AI Cheer Buddy
+            </h1>
           </div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500">
-            AI Cheer Buddy
-          </h1>
+          <div>
+            <Tabs defaultValue={AI_GOOGLE} className="">
+              <TabsList>
+                <TabsTrigger
+                  value={AI_GOOGLE}
+                  onClick={() => handleChangeTab(AI_GOOGLE)}
+                >
+                  Google Gemini
+                </TabsTrigger>
+                <TabsTrigger
+                  value={AI_OPENAI}
+                  onClick={() => handleChangeTab(AI_OPENAI)}
+                >
+                  Chat GPT
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
         <div className="space-y-6">
           {remainingAttempts < 2 && (
@@ -212,10 +250,7 @@ function App() {
               <button
                 onClick={generateReminders}
                 disabled={
-                  loading ||
-                  isSituationEmpty ||
-                  isSituationTheSame ||
-                  remainingAttempts === 0
+                  loading || isSituationEmpty || remainingAttempts === 0
                 }
                 className="absolute bottom-3 right-3 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white p-2 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -229,6 +264,11 @@ function App() {
           </div>
         </div>
       </div>
+      {lastSituation && (
+        <div className="mt-8 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-sm py-2 px-4 rounded-xl border border-white/20 flex flex-col items-center justifycenter relative shadow-lg">
+          <h1>{lastSituation}</h1>
+        </div>
+      )}
       {reminders.length > 0 && (
         <div className="max-w-6xl mt-8 space-y-4">
           <div className="bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-sm p-8 rounded-xl border border-white/20 min-h-[200px] flex flex-col items-center justifycenter relative shadow-lg">
