@@ -28,7 +28,8 @@
     "sirv": "^3.0.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.1",
-    "tw-animate-css": "^1.2.4"
+    "tw-animate-css": "^1.2.4",
+    "vite-plugin-vercel": "^9.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
